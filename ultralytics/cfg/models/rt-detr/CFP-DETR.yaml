@@ -1,0 +1,44 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Parameters
+nc: 80  # number of classes
+scales: # model compound scaling constants
+  l: [1.00, 1.00, 1024]
+
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, ConvNormLayer, [32, 3, 2, None, False, 'relu']] # 0-P1/2
+  - [-1, 1, ConvNormLayer, [32, 3, 1, None, False, 'relu']] # 1
+  - [-1, 1, ConvNormLayer, [64, 3, 1, None, False, 'relu']] # 2
+  - [-1, 1, nn.MaxPool2d, [3, 2, 1]] # 3-P2/4
+  
+
+  - [-1, 1, Blocks, [64, EL_CFPDETR, 2, 2, 'relu']] # 4
+  - [-1, 1, Blocks, [128, EL_CFPDETR, 2, 3, 'relu']] # 5-P3/8
+  - [-1, 1, Blocks, [256, EL_CFPDETR, 2, 4, 'relu']] # 6-P4/16
+  - [-1, 1, Blocks, [512, EL_CFPDETR, 2, 5, 'relu']] # 7-P5/32
+head:
+  - [-1, 1, GSConv, [256, 1, 1, None, 1, 1, False]]  # 8 
+  - [-1, 1, GCDM, [1024, 8]] # 9 
+  - [-1, 1, GSConv, [256, 1, 1]]  # 10
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']] # 11
+  - [6, 1, GSConv, [256, 1, 1, None, 1, 1, False]]  # 12
+  - [[-1, 6, -2], 1, TFE, []] # 13
+  - [-1, 3, VoVGSCSP, [256]]  # 14
+  - [-1, 1, GSConv, [256, 1, 1]]   # 15, 
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']] # 16
+  - [4, 1, SPDConv, [256]] # 17
+  - [[-1, 5, -2], 1, TFE, []]  # 18
+  - [[-1, 6], 1, PST, [256, 2, 0.5]] # 19 
+
+  - [-1, 1, GSConv, [256, 3, 2]]   # 20
+  - [[-1, 15], 1, Concat, [1]]  # 21 
+  - [-1, 3, VoVGSCSP, [256]]    
+
+  - [-1, 1, GSConv, [256, 3, 2]]   # 23
+  - [[-1, 10], 1, Concat, [1]]  # 24
+  - [-1, 3, VoVGSCSP, [256]]  
+  - [[5, 6, 8], 1, SSA, [256]] # 26 
+  - [[19, -1], 1, Add, []] # 27
+
+  - [[27, 22, 25], 1, RTDETRDecoder, [nc, 256, 300, 4, 8, 3]] 
